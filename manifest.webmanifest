@@ -1,10 +1,11 @@
 {
-  "name": "EJ's Arcade",
-  "short_name": "EJ's Arcade",
+  "id": "./",
+  "name": "EJ’s Arcade",
+  "short_name": "EJ’s Arcade",
   "description": "A retro games room: pick a game and play.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
+  "display": "standalone",
   "background_color": "#05020c",
   "theme_color": "#05020c",
   "icons": [

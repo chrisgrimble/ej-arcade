@@ -2,7 +2,7 @@
 // Lets the installed arcade run offline. Network first, so a new version is
 // picked up whenever the phone is online. Each game folder has its own service
 // worker and cache, so this one only looks after the arcade's own files.
-const CACHE = 'ej-arcade-v1';
+const CACHE = 'ej-arcade-v2';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'fonts/press-start-2p.woff2',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
