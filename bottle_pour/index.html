@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bottle Pour</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#141826">
+  <meta name="apple-mobile-web-app-title" content="Bottle Pour">
+  <style>
+    * { box-sizing: border-box; }
+    :root { color-scheme: dark; background: #141826; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top, #2b3550, #141826);
+      color: #eef;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-block: 24px;
+      padding-left: max(16px, env(safe-area-inset-left, 0px));
+      padding-right: max(16px, env(safe-area-inset-right, 0px));
+      overflow-x: hidden;  /* a tilted bottle may poke past the edge mid-pour */
+    }
+    h1 { margin: 0 0 8px; font-weight: 600; letter-spacing: 1px; }
+    #status {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px 24px;
+      margin-bottom: 16px;
+      opacity: 0.85;
+    }
+    #controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
+    #message {
+      min-height: 1.4em;  /* reserve the line so the board doesn't jump */
+      margin: 0 0 30px;
+      max-width: 34em;
+      text-align: center;
+      color: #f1d77a;
+    }
+    #hint { background: #6b5a2e; }
+    #hint:hover { background: #82703a; }
+    .bottle.hint-from { animation: hint-glow 1s ease-in-out infinite; --glow: #f1c40f; }
+    .bottle.hint-to { animation: hint-glow 1s ease-in-out infinite; --glow: #ffffff; }
+    @keyframes hint-glow {
+      0%, 100% { box-shadow: 0 0 4px var(--glow); }
+      50% { box-shadow: 0 0 20px 4px var(--glow); }
+    }
+    .bottle.hint-from.selected { box-shadow: 0 0 18px var(--glow); animation: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .bottle.hint-from, .bottle.hint-to { animation: none; box-shadow: 0 0 14px 3px var(--glow); }
+    }
+    button {
+      font: inherit;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      background: #4a5a85;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: #5b6da0; }
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    #board {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 28px;
+      justify-content: center;
+      max-width: 1000px;
+      position: relative;
+    }
+    /* Phones: smaller bottles so the bigger levels fit in a couple of rows. */
+    @media (max-width: 520px) {
+      h1 { font-size: 1.6em; }
+      #message { margin-bottom: 20px; font-size: 0.92em; }
+      #board { gap: 18px 12px; }
+      .bottle { --layer-h: 28px; width: 42px; border-radius: 0 0 18px 18px; }
+    }
+    .bottle.pouring {
+      z-index: 10;
+      transform-origin: top center;
+    }
+    .stream {
+      position: absolute;
+      width: 10px;
+      border-radius: 5px;
+      z-index: 5;
+    }
+    .bottle {
+      --layer-h: 40px;
+      width: 60px;
+      /* height is set from capacity in game.js */
+      border: 3px solid rgba(255, 255, 255, 0.75);
+      border-top: none;
+      border-radius: 0 0 26px 26px;
+      background: rgba(255, 255, 255, 0.06);
+      display: flex;
+      flex-direction: column-reverse;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      position: relative;
+    }
+    .bottle::before {
+      /* bottle neck rim */
+      content: "";
+      position: absolute;
+      top: 0; left: -3px; right: -3px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.75);
+    }
+    .bottle.selected {
+      transform: translateY(-20px);
+      box-shadow: 0 0 18px rgba(255, 255, 200, 0.7);
+    }
+    /* A cork in the neck of every finished bottle. */
+    .bottle.complete::after {
+      content: "";
+      position: absolute;
+      top: 1px;
+      left: 18%;
+      right: 18%;
+      height: 13px;
+      border-radius: 3px 3px 2px 2px;
+      background: repeating-linear-gradient(90deg, #c8955a 0 4px, #b5824a 4px 6px);
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+    }
+    .bottle.pop { animation: pop 0.45s ease-out; }
+    @keyframes pop {
+      0%, 100% { scale: 1; }
+      35% { scale: 1.08 0.94; }
+      65% { scale: 0.97 1.04; }
+    }
+    .sparkle {
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      margin: -3.5px 0 0 -3.5px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 20;
+      animation: sparkle 0.7s ease-out forwards;
+    }
+    @keyframes sparkle {
+      from { transform: translate(0, 0) scale(1.2); opacity: 1; }
+      to { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+    }
+    .confetti {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 150;
+    }
+    .bottle.shake { animation: shake 0.35s; }
+    @keyframes shake {
+      0%, 100% { translate: 0; }
+      20% { translate: -6px; }
+      40% { translate: 6px; }
+      60% { translate: -4px; }
+      80% { translate: 4px; }
+    }
+    .layer {
+      height: var(--layer-h);
+      flex-shrink: 0;
+      border-top: 1px solid rgba(0, 0, 0, 0.15);
+    }
+    /* Hidden layers: a striped, face-down tile marked "?". */
+    .layer.face-down {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: repeating-linear-gradient(135deg, #3b4568 0 6px, #333c5d 6px 12px);
+      color: #9aa6cf;
+      font-weight: 700;
+      font-size: calc(var(--layer-h) * 0.45);
+      border-top-color: rgba(255, 255, 255, 0.08);
+    }
+    .layer.revealed { animation: reveal 0.4s ease-out; }
+    @keyframes reveal {
+      from { transform: scaleY(0); filter: brightness(1.8); }
+      to { transform: scaleY(1); filter: brightness(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .layer.revealed { animation: none; }
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .overlay[hidden] { display: none; }
+    .overlay .panel {
+      background: #2b3550;
+      padding: 32px 40px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+    .overlay h2 { margin-top: 0; font-size: 2em; }
+    .overlay .panel { max-width: 100%; max-height: 100%; overflow-y: auto; }
+    .panel-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    button.secondary { background: transparent; box-shadow: inset 0 0 0 2px #4a5a85; }
+    button.secondary:hover { background: rgba(74, 90, 133, 0.35); }
+    button:focus-visible { outline: 2px solid #f1c40f; outline-offset: 2px; }
+
+    #win-stars { font-size: 3em; line-height: 1; letter-spacing: 6px; }
+    .star { display: inline-block; color: #4a5a85; }
+    .star.earned { color: #f1c40f; animation: star-pop 0.4s backwards; }
+    @keyframes star-pop {
+      from { transform: scale(0) rotate(-30deg); opacity: 0; }
+      70% { transform: scale(1.3); }
+      to { transform: scale(1); opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .star.earned { animation: none; }
+    }
+
+    #star-total { margin-top: -8px; color: #f1c40f; font-variant-numeric: tabular-nums; }
+    #level-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 72px);
+      gap: 10px;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+    .level-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 4px;
+      background: #3a4870;
+    }
+    .level-tile.current { box-shadow: inset 0 0 0 2px #f1c40f; }
+    .level-tile:disabled { background: #222a40; opacity: 1; color: #6b7699; }
+    .tile-number { font-size: 1.3em; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .tile-stars { font-size: 0.8em; color: #f1c40f; letter-spacing: 1px; }
+    .level-tile:disabled .tile-stars { color: inherit; }
+    @media (max-width: 520px) {
+      .overlay .panel { padding: 24px 16px; }
+      #level-grid { grid-template-columns: repeat(4, 60px); gap: 8px; }
+    }
+    #name-form { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+    #name-input {
+      font: inherit;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 2px solid #4a5a85;
+      background: #141826;
+      color: #fff;
+      width: 220px;
+      text-align: center;
+    }
+    #name-input:focus { outline: none; border-color: #8fa3e0; }
+
+    #player-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: min(280px, 100%);
+      margin: 0 auto;
+      max-height: 40vh;
+      overflow-y: auto;
+    }
+    .player-choice {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      text-align: left;
+      background: #3a4870;
+    }
+    .player-choice.current { box-shadow: inset 0 0 0 2px #f1c40f; }
+    .player-name { font-weight: 600; overflow-wrap: anywhere; }
+    .player-detail { font-size: 0.85em; color: #c9d1ee; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .player-detail .star-count { color: #f1c40f; }
+    .or-new { margin: 18px 0 10px; color: #c9d1ee; }
+    #cancel-player { margin-top: 16px; }
+
+    .transfer-links {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      margin-top: 20px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    button.link-button {
+      background: none;
+      padding: 4px 8px;
+      color: #9fb4f0;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    button.link-button:hover { background: none; color: #c4d2ff; }
+
+    .transfer-panel { width: min(400px, 100%); }
+    .transfer-panel p { margin: 0 0 12px; }
+    .transfer-summary { font-weight: 600; font-size: 1.1em; }
+    .transfer-summary .star-count { color: #f1c40f; }
+    .transfer-label { font-size: 0.85em; color: #c9d1ee; text-transform: uppercase; letter-spacing: 0.08em; }
+    .transfer-code {
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 1.25em;
+      letter-spacing: 0.06em;
+      background: #141826;
+      border-radius: 8px;
+      padding: 10px;
+      overflow-wrap: anywhere;
+      user-select: all;
+    }
+    #send-link, #receive-code {
+      font: inherit;
+      width: 100%;
+      padding: 8px 10px;
+      margin-bottom: 14px;
+      border-radius: 8px;
+      border: 2px solid #4a5a85;
+      background: #141826;
+      color: #fff;
+    }
+    #send-link { font-size: 0.8em; color: #c9d1ee; }
+    #send-link[hidden] { display: none; }
+    #receive-code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; text-align: center; }
+    #receive-form { display: flex; flex-direction: column; align-items: center; }
+    .transfer-status { min-height: 1.4em; color: #8be0a4; margin-top: 10px !important; }
+    .transfer-error { min-height: 1.4em; color: #ff9a8f; }
+    #close-send, #close-receive { margin-top: 8px; }
+    #receive-add { margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Bottle Pour</h1>
+  <div id="status">
+    <span>Player: <strong id="player"></strong></span>
+    <span>Level: <strong id="level"></strong></span>
+    <span>Moves: <strong id="moves"></strong></span>
+  </div>
+  <div id="controls">
+    <button id="hint">Hint</button>
+    <button id="undo">Undo</button>
+    <button id="restart">Restart</button>
+    <button id="levels">Levels</button>
+    <button id="change-player">Change player</button>
+    <button id="sound" aria-pressed="true">Sound on</button>
+  </div>
+  <p id="message" role="status" aria-live="polite"></p>
+  <div id="board"></div>
+
+  <div id="win" class="overlay" hidden>
+    <div class="panel">
+      <h2>You win!</h2>
+      <div id="win-stars" role="img"></div>
+      <p id="win-text"></p>
+      <div class="panel-buttons">
+        <button id="win-levels" class="secondary">Levels</button>
+        <button id="win-change-player" class="secondary">Change player</button>
+        <button id="next">Next level</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="levels-dialog" class="overlay" hidden>
+    <div class="panel">
+      <h2>Levels</h2>
+      <p id="star-total"></p>
+      <div id="level-grid"></div>
+      <button id="close-levels" class="secondary">Back to game</button>
+    </div>
+  </div>
+
+  <div id="name-dialog" class="overlay" hidden>
+    <div class="panel">
+      <h2>Who's playing?</h2>
+      <div id="player-list" hidden>
+        <div id="player-buttons"></div>
+        <p class="or-new">Or play as someone new:</p>
+      </div>
+      <form id="name-form">
+        <input id="name-input" type="text" maxlength="30" placeholder="Your name"
+               autocomplete="off" required>
+        <button type="submit">Play</button>
+      </form>
+      <button id="cancel-player" class="secondary" hidden></button>
+      <div class="transfer-links">
+        <button type="button" id="open-send" class="link-button" hidden>Send progress to another device</button>
+        <button type="button" id="open-receive" class="link-button">Enter a transfer code</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="send-dialog" class="overlay" hidden>
+    <div class="panel transfer-panel">
+      <h2>Send progress</h2>
+      <p id="send-summary" class="transfer-summary"></p>
+      <p id="send-how"></p>
+      <input id="send-link" readonly aria-label="Transfer link">
+      <p class="transfer-label">Transfer code</p>
+      <p id="send-code" class="transfer-code"></p>
+      <div class="panel-buttons">
+        <button id="share-link" hidden>Share link</button>
+        <button id="copy-link" class="secondary">Copy link</button>
+        <button id="copy-code" class="secondary">Copy code</button>
+      </div>
+      <p id="send-status" class="transfer-status" role="status" aria-live="polite"></p>
+      <button id="close-send" class="secondary">Done</button>
+    </div>
+  </div>
+
+  <div id="receive-dialog" class="overlay" hidden>
+    <div class="panel transfer-panel">
+      <h2>Add progress</h2>
+      <p>Type the transfer code from your other device.</p>
+      <form id="receive-form">
+        <input id="receive-code" type="text" placeholder="e.g. 04B1-CVZ3-KYZZ" autocomplete="off"
+               autocapitalize="characters" spellcheck="false" aria-label="Transfer code">
+        <button type="submit">Check code</button>
+      </form>
+      <p id="receive-error" class="transfer-error" role="alert"></p>
+      <div id="receive-preview" hidden>
+        <p id="receive-summary" class="transfer-summary"></p>
+        <p id="receive-merge"></p>
+        <button id="receive-add">Add progress and play</button>
+      </div>
+      <button id="close-receive" class="secondary">Cancel</button>
+    </div>
+  </div>
+
+  <script src="rules.js"></script>
+  <script src="progress.js"></script>
+  <script src="transfer.js"></script>
+  <script src="levels.js"></script>
+  <script src="sound.js"></script>
+  <script src="celebrate.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

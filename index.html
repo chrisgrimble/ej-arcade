@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EJ's Arcade</title>
+<meta name="theme-color" content="#05020c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preload" href="fonts/press-start-2p.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  /* Press Start 2P by CodeMan38, SIL Open Font License (fonts/OFL.txt) */
+  @font-face {
+    font-family: "Press Start 2P";
+    src: url("fonts/press-start-2p.woff2") format("woff2");
+    font-display: swap;
+  }
+  :root {
+    --bg: #05020c;
+    --pink: #ff3df2;
+    --cyan: #2ef6ff;
+    --yellow: #ffe23d;
+    --orange: #ff8a1f;
+    --green: #47ff6a;
+    --dim: #6b5d8f;
+    --pixel: "Press Start 2P", ui-monospace, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: #fff;
+    font-family: var(--pixel);
+    overflow: hidden;
+    -webkit-font-smoothing: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ---------- CRT screen ---------- */
+  #stars { position: fixed; inset: 0; width: 100%; height: 100%; }
+  .crt {
+    position: fixed; inset: 0; pointer-events: none; z-index: 10;
+    background:
+      repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.28) 2px 3px),
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.75) 100%);
+    animation: flicker 6s infinite steps(1);
+  }
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    47% { opacity: .9; }
+    48% { opacity: 1; }
+    82% { opacity: .94; }
+  }
+  .flash {
+    position: fixed; inset: 0; z-index: 9; pointer-events: none;
+    background: #fff; opacity: 0;
+  }
+  .flash.go { animation: flash .5s steps(4) forwards; }
+  @keyframes flash { 0% { opacity: .9; } 100% { opacity: 0; } }
+
+  /* ---------- Layout ---------- */
+  main {
+    position: relative; z-index: 1;
+    height: 100%;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: space-between;
+    padding: max(20px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+  .hud {
+    width: 100%; max-width: 900px;
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: clamp(8px, 2.2vw, 13px); line-height: 1.8;
+  }
+  .hud .label { color: var(--pink); }
+  .hud .value { color: #fff; }
+  .hud .right { text-align: right; }
+
+  /* ---------- Title ---------- */
+  header { text-align: center; margin-top: clamp(8px, 3vh, 32px); }
+  h1 {
+    margin: 0;
+    font-size: clamp(30px, 9vw, 84px);
+    line-height: 1.15;
+    letter-spacing: .04em;
+    /* banded chrome-sunset lettering */
+    background: linear-gradient(to bottom,
+      var(--yellow) 0 30%, var(--orange) 30% 52%, var(--pink) 52% 76%, #a23dff 76% 100%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    filter:
+      drop-shadow(4px 4px 0 #2b0b5c)
+      drop-shadow(0 0 14px rgba(255,61,242,.55));
+    animation: bob 2.4s ease-in-out infinite;
+  }
+  @keyframes bob { 50% { transform: translateY(-4px); } }
+  .tagline {
+    margin: clamp(12px, 2vh, 20px) 0 0;
+    font-size: clamp(8px, 2.2vw, 13px);
+    color: var(--cyan);
+    text-shadow: 0 0 8px rgba(46,246,255,.7);
+    letter-spacing: .2em;
+  }
+  .horizon {
+    width: min(90vw, 620px); height: 6px; margin: 18px auto 0;
+    background: repeating-linear-gradient(to right, var(--pink) 0 12px, transparent 12px 18px);
+    box-shadow: 0 0 10px var(--pink);
+  }
+
+  /* ---------- Game select ---------- */
+  .select { width: 100%; max-width: 680px; margin: clamp(16px, 4vh, 40px) 0; }
+  .select h2 {
+    margin: 0 0 18px; text-align: center;
+    font-size: clamp(11px, 3vw, 18px); font-weight: normal;
+    color: var(--yellow);
+    text-shadow: 3px 3px 0 #7a2b00;
+  }
+  .games { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+  .game {
+    display: grid;
+    grid-template-columns: 22px 56px minmax(0, 1fr);
+    align-items: center; gap: 14px;
+    padding: 12px 14px;
+    color: inherit; text-decoration: none;
+    border: 3px solid var(--dim);
+    background: rgba(10, 4, 28, .78);
+    box-shadow: 4px 4px 0 #000;
+    outline: none;
+  }
+  .game .cursor { color: var(--yellow); font-size: 16px; visibility: hidden; }
+  .game img {
+    width: 56px; height: 56px; image-rendering: pixelated;
+    border: 2px solid #000; background: #000;
+  }
+  .game .name { display: block; font-size: clamp(11px, 3.2vw, 18px); line-height: 1.5; }
+  .game .info {
+    display: block; margin-top: 8px;
+    font-size: clamp(7px, 2vw, 10px); line-height: 1.7; color: var(--dim);
+  }
+  .game.active {
+    border-color: var(--cyan);
+    box-shadow: 4px 4px 0 #000, 0 0 18px rgba(46,246,255,.45), inset 0 0 18px rgba(46,246,255,.15);
+  }
+  .game.active .cursor { visibility: visible; animation: blink .6s steps(1) infinite; }
+  .game.active .name { color: var(--cyan); text-shadow: 0 0 8px rgba(46,246,255,.8); }
+  .game.active .info { color: #cfc6ff; }
+  .game.launching { animation: launch .12s steps(1) 6; }
+  @keyframes launch { 50% { border-color: var(--yellow); background: rgba(255,226,61,.25); } }
+
+  /* ---------- Footer ---------- */
+  footer { text-align: center; font-size: clamp(8px, 2.2vw, 12px); line-height: 2.2; }
+  .press { color: #fff; animation: blink 1s steps(1) infinite; }
+  .hint { color: var(--dim); font-size: clamp(7px, 1.8vw, 10px); }
+  .copy { color: var(--pink); }
+  @keyframes blink { 50% { visibility: hidden; } }
+
+  /* ---------- Get ready overlay ---------- */
+  .ready {
+    position: fixed; inset: 0; z-index: 8;
+    display: none; align-items: center; justify-content: center; flex-direction: column; gap: 22px;
+    background: var(--bg); text-align: center; padding: 16px;
+  }
+  .ready.show { display: flex; }
+  .ready .big {
+    font-size: clamp(22px, 7vw, 56px); color: var(--yellow);
+    text-shadow: 4px 4px 0 #7a2b00, 0 0 18px rgba(255,226,61,.5);
+    animation: blink .4s steps(1) infinite;
+  }
+  .ready .which { font-size: clamp(10px, 3vw, 18px); color: var(--cyan); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<main>
+  <div class="hud" aria-hidden="true">
+    <div><span class="label">1UP</span><br><span class="value" id="plays">00</span></div>
+    <div class="right"><span class="label">CREDIT</span><br><span class="value" id="credit">01</span></div>
+  </div>
+
+  <header>
+    <h1>EJ'S ARCADE</h1>
+    <p class="tagline">★ GAMES ROOM ★</p>
+    <div class="horizon"></div>
+  </header>
+
+  <section class="select" aria-labelledby="select-title">
+    <h2 id="select-title">SELECT GAME</h2>
+    <ul class="games" id="games"></ul>
+  </section>
+
+  <footer>
+    <div class="press">PRESS START</div>
+    <div class="hint">↑ ↓ TO CHOOSE · ENTER TO PLAY · OR TAP A GAME</div>
+    <div class="copy">© 1986 EJ SOFT</div>
+  </footer>
+</main>
+
+<div class="ready" id="ready" aria-live="assertive">
+  <div class="big">GET READY!</div>
+  <div class="which" id="ready-name"></div>
+</div>
+<div class="flash" id="flash"></div>
+<div class="crt"></div>
+
+<script>
+'use strict';
+
+// To add a game: copy its folder in here and add an entry below.
+const GAMES = [
+  {
+    name: 'BOTTLE POUR',
+    href: 'bottle_pour/',
+    icon: 'bottle_pour/icons/icon-192.png',
+    info: 'PUZZLE · POUR THE COLOURS UNTIL EACH BOTTLE HOLDS ONE',
+  },
+  {
+    name: 'MUDLARK RALLY',
+    href: 'mudlark_rally/',
+    icon: 'mudlark_rally/icons/icon-192.png',
+    info: 'RACING · OFF-ROAD ARCADE RACER · BEST IN LANDSCAPE',
+  },
+];
+
+// ---------- Sound: tiny square-wave bleeps ----------
+let audio;
+function bleep(freq, dur = 0.06, when = 0) {
+  try {
+    audio ??= new (window.AudioContext || window.webkitAudioContext)();
+    const t = audio.currentTime + when;
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0.06, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(gain).connect(audio.destination);
+    osc.start(t);
+    osc.stop(t + dur);
+  } catch { /* no audio available: play silently */ }
+}
+const fanfare = () => [523, 659, 784, 1047].forEach((f, i) => bleep(f, 0.12, i * 0.1));
+
+// ---------- Play counter (just for fun, per browser) ----------
+const playsEl = document.getElementById('plays');
+let plays = 0;
+try { plays = Number(localStorage.getItem('ej-arcade-plays')) || 0; } catch {}
+playsEl.textContent = String(plays).padStart(2, '0');
+
+// ---------- Menu ----------
+const list = document.getElementById('games');
+const items = GAMES.map((game, i) => {
+  const li = document.createElement('li');
+  li.innerHTML = `
+    <a class="game" href="${game.href}">
+      <span class="cursor" aria-hidden="true">▶</span>
+      <img src="${game.icon}" alt="">
+      <span><span class="name">${game.name}</span><span class="info">${game.info}</span></span>
+    </a>`;
+  const link = li.firstElementChild;
+  link.addEventListener('mouseenter', () => select(i));
+  link.addEventListener('focus', () => select(i, false));
+  link.addEventListener('click', e => { e.preventDefault(); launch(i); });
+  list.appendChild(li);
+  return link;
+});
+
+let current = 0;
+let launching = false;
+function select(i, sound = true) {
+  if (launching) return;
+  i = (i + items.length) % items.length;
+  if (i !== current && sound) bleep(880);
+  items[current].classList.remove('active');
+  current = i;
+  items[current].classList.add('active');
+}
+select(0, false);
+
+function launch(i) {
+  if (launching) return;
+  select(i, false);
+  launching = true;
+  const game = GAMES[i];
+  const link = items[i];
+  try { localStorage.setItem('ej-arcade-plays', String(Math.min(plays + 1, 99))); } catch {}
+  fanfare();
+  link.classList.add('launching');
+  setTimeout(() => {
+    document.getElementById('flash').classList.add('go');
+    document.getElementById('ready-name').textContent = game.name;
+    document.getElementById('ready').classList.add('show');
+  }, 700);
+  setTimeout(() => { location.href = game.href; }, 1700);
+}
+
+// Coming back with the browser's back button can restore the page mid-launch.
+window.addEventListener('pageshow', e => {
+  if (!e.persisted) return;
+  launching = false;
+  items.forEach(el => el.classList.remove('launching'));
+  document.getElementById('ready').classList.remove('show');
+  document.getElementById('flash').classList.remove('go');
+});
+
+document.addEventListener('keydown', e => {
+  if (['ArrowUp', 'w', 'W'].includes(e.key)) { select(current - 1); e.preventDefault(); }
+  else if (['ArrowDown', 's', 'S'].includes(e.key)) { select(current + 1); e.preventDefault(); }
+  else if (['Enter', ' '].includes(e.key)) { launch(current); e.preventDefault(); }
+  else if (e.key === '5' || e.key === 'c' || e.key === 'C') {   // "insert coin"
+    const credit = document.getElementById('credit');
+    credit.textContent = String(Math.min(Number(credit.textContent) + 1, 99)).padStart(2, '0');
+    bleep(1320, 0.08); bleep(1760, 0.1, 0.08);
+  }
+});
+
+// ---------- Starfield ----------
+const canvas = document.getElementById('stars');
+const ctx = canvas.getContext('2d');
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const COLOURS = ['#ffffff', '#2ef6ff', '#ff3df2', '#ffe23d'];
+let stars = [];
+function resize() {
+  canvas.width = Math.ceil(innerWidth / 3);   // low-res, scaled up for chunky pixels
+  canvas.height = Math.ceil(innerHeight / 3);
+  canvas.style.imageRendering = 'pixelated';
+  stars = Array.from({ length: Math.floor(canvas.width * canvas.height / 90) }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    speed: 0.15 + Math.random() * 0.9,
+    colour: COLOURS[Math.random() < 0.8 ? 0 : 1 + Math.floor(Math.random() * 3)],
+  }));
+}
+function drawStars() {
+  ctx.fillStyle = '#05020c';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (const s of stars) {
+    if (!still) {
+      s.y += s.speed;
+      if (s.y > canvas.height) { s.y = 0; s.x = Math.random() * canvas.width; }
+    }
+    ctx.fillStyle = s.colour;
+    ctx.globalAlpha = 0.35 + s.speed * 0.6;
+    ctx.fillRect(Math.floor(s.x), Math.floor(s.y), s.speed > 0.8 ? 2 : 1, 1);
+  }
+  ctx.globalAlpha = 1;
+  if (!still) requestAnimationFrame(drawStars);
+}
+addEventListener('resize', () => { resize(); if (still) drawStars(); });
+resize();
+drawStars();
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
