@@ -8,7 +8,7 @@ const PALETTE = [
   "#f1c40f", // yellow
   "#9b59b6", // purple
   "#e67e22", // orange
-  "#bb0055", // raspberry
+  "#5ef1ff", // cyan
   "#ff6fb5", // pink
   "#8d6e63", // brown
   "#bdc3c7", // grey
