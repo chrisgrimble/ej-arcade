@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Puzzle Pals</title>
+<meta name="theme-color" content="#3fc8b4">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: #3fc8b4;
+    background-image: radial-gradient(rgba(255,255,255,.18) 2px, transparent 2px);
+    background-size: 22px 22px;
+    font-family: "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+    color: #233;
+    user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+  .screen[hidden] { display: none; }
+
+  .bar { display: flex; align-items: center; gap: 8px; }
+  .round {
+    flex: 0 0 54px; height: 54px; border: 0; border-radius: 16px;
+    background: #fff; box-shadow: 0 4px 0 #2a9c8b;
+    font-size: 26px; line-height: 1; padding: 0;
+  }
+  .round:active { transform: translateY(3px); box-shadow: 0 1px 0 #2a9c8b; }
+  .round.on { background: #ffd94a; }
+
+  /* ---------- Menu ---------- */
+  #menu { overflow-y: auto; }
+  h1 {
+    flex: 1; margin: 0; text-align: center;
+    font-size: clamp(28px, 8vw, 48px); color: #fff;
+    text-shadow: 3px 3px 0 #2a9c8b, -2px -2px 0 #2a9c8b, 2px -2px 0 #2a9c8b, -2px 2px 0 #2a9c8b;
+    letter-spacing: 1px;
+  }
+  .label { margin: 16px 0 8px; text-align: center; font-size: 20px; font-weight: bold; color: #fff; text-shadow: 2px 2px 0 #2a9c8b; }
+  .sizes { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .size {
+    width: 74px; height: 74px; border: 0; border-radius: 18px;
+    background: #fff; box-shadow: 0 5px 0 #2a9c8b;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    font-size: 22px; font-weight: bold;
+  }
+  .size.on { background: #ffd94a; box-shadow: 0 5px 0 #d1a400; transform: translateY(-3px); }
+  .size .grid { display: grid; gap: 2px; }
+  .size .grid i { width: 7px; height: 7px; border-radius: 2px; background: #3fc8b4; }
+  .pictures {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    max-width: 900px; width: 100%; margin: 0 auto 16px;
+  }
+  .picture {
+    position: relative; border: 0; padding: 6px; border-radius: 18px;
+    background: #fff; box-shadow: 0 5px 0 #2a9c8b;
+    text-align: center; font-size: 16px; font-weight: bold;
+  }
+  .picture:active { transform: translateY(3px); box-shadow: 0 2px 0 #2a9c8b; }
+  .picture canvas, .picture .photo {
+    display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; margin-bottom: 4px;
+  }
+  .picture .photo {
+    display: flex; align-items: center; justify-content: center;
+    background: #eefaf8; border: 3px dashed #3fc8b4; font-size: 48px;
+  }
+  .picture .done {
+    position: absolute; top: -6px; right: -6px;
+    background: #ffd94a; border-radius: 14px; padding: 3px 8px;
+    font-size: 13px; box-shadow: 0 2px 0 #d1a400;
+  }
+
+  /* ---------- Play ---------- */
+  #count {
+    flex: 1; text-align: center; font-size: 22px; font-weight: bold; color: #fff;
+    text-shadow: 2px 2px 0 #2a9c8b;
+  }
+  #area { position: relative; flex: 1; margin-top: 8px; touch-action: none; }
+  #board {
+    position: absolute; border-radius: 6px;
+    background: rgba(255,255,255,.55);
+    box-shadow: 0 0 0 4px #fff, 0 6px 0 4px #2a9c8b;
+  }
+  .piece { position: absolute; touch-action: none; cursor: grab; }
+  .piece.drag { cursor: grabbing; filter: drop-shadow(0 8px 6px rgba(0,0,0,.35)); }
+  .piece.loose { filter: drop-shadow(0 3px 2px rgba(0,0,0,.3)); }
+  .piece.placed { pointer-events: none; }
+  .piece.snap { transition: left .12s, top .12s; }
+
+  /* ---------- Well done ---------- */
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+  #win {
+    position: fixed; inset: 0; z-index: 40;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.25);
+  }
+  #win[hidden] { display: none; }
+  .card {
+    background: #fff; border-radius: 26px; padding: 22px 26px; text-align: center;
+    box-shadow: 0 8px 0 #2a9c8b; animation: bounce .5s;
+  }
+  .card .big { font-size: 40px; font-weight: bold; color: #ff5fa2; margin-bottom: 6px; }
+  .card .stars { font-size: 34px; margin-bottom: 14px; }
+  .card .bar { justify-content: center; }
+  .card .round { flex-basis: auto; padding: 0 16px; font-size: 20px; font-weight: bold; }
+  @keyframes bounce { 0% { transform: scale(.3); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+</style>
+</head>
+<body>
+
+<section class="screen" id="menu">
+  <div class="bar">
+    <button class="round" id="home" aria-label="Back to the arcade">🏠</button>
+    <h1>Puzzle Pals</h1>
+    <span style="flex: 0 0 54px"></span>
+  </div>
+  <div class="label">How many pieces?</div>
+  <div class="sizes" id="sizes"></div>
+  <div class="label">Pick a picture</div>
+  <div class="pictures" id="pictures"></div>
+  <input type="file" id="photo-input" accept="image/*" hidden>
+</section>
+
+<section class="screen" id="play" hidden>
+  <div class="bar">
+    <button class="round" id="back" aria-label="Choose another puzzle">⬅️</button>
+    <div id="count"></div>
+    <button class="round on" id="peek" aria-label="Show the picture on the board">👀</button>
+  </div>
+  <div id="area"><canvas id="board"></canvas></div>
+</section>
+
+<div id="win" hidden>
+  <div class="card">
+    <div class="big">Well done!</div>
+    <div class="stars">⭐⭐⭐</div>
+    <div class="bar">
+      <button class="round" id="again">🔁 Again</button>
+      <button class="round" id="next">🧩 New</button>
+    </div>
+  </div>
+</div>
+<canvas id="confetti"></canvas>
+
+<script src="scenes.js"></script>
+<script src="puzzle.js"></script>
+</body>
+</html>
