@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Doodle Den</title>
+<meta name="theme-color" content="#ffd94a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    display: flex; flex-direction: column;
+    background: #ffd94a;
+    font-family: "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+    user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---------- Paper ---------- */
+  #paper {
+    position: relative; flex: 1; overflow: hidden;
+    margin: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left));
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 4px 0 #e0a800, inset 0 0 0 4px #fff3b0;
+  }
+  #canvas { position: absolute; left: 0; top: 0; touch-action: none; cursor: crosshair; }
+
+  /* ---------- Toolbar ---------- */
+  #toolbar {
+    padding: 8px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .tray {
+    display: flex; align-items: flex-end; gap: 6px;
+    overflow-x: auto; overflow-y: hidden;
+    height: 76px; padding: 0 4px;
+    scrollbar-width: none;
+  }
+  .tray::-webkit-scrollbar { display: none; }
+  .tray[hidden] { display: none; }
+
+  /* Pencils: a coloured body with a sharpened wooden tip */
+  .pencil {
+    flex: 1 1 0; max-width: 40px; min-width: 24px; height: 64px; padding: 0; border: 0; background: none;
+    position: relative; cursor: pointer;
+    transition: transform .15s;
+  }
+  .pencil::before {   /* wooden cone */
+    content: ""; position: absolute; left: 10%; right: 10%; top: 0; height: 20px;
+    background: #f6d3a0;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  }
+  .pencil::after {    /* lead */
+    content: ""; position: absolute; left: 37%; right: 37%; top: 0; height: 7px;
+    background: var(--c);
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  }
+  .pencil span {
+    position: absolute; left: 10%; right: 10%; top: 20px; bottom: 0;
+    background: var(--c);
+    border-radius: 0 0 5px 5px;
+    box-shadow: inset 5px 0 0 rgba(255,255,255,.3), inset -5px 0 0 rgba(0,0,0,.12);
+  }
+  .pencil.rainbow span { background: linear-gradient(#ff4d4d, #ffa64d, #ffe14d, #5be36b, #4dc3ff, #9b6bff); }
+  .pencil.rainbow::after { background: linear-gradient(90deg, #ff4d4d, #4dc3ff); }
+  .pencil.on { transform: translateY(-10px); }
+
+  .stamp {
+    flex: 0 0 56px; height: 56px; margin-bottom: 6px;
+    border: 3px solid transparent; border-radius: 16px;
+    background: #fff8d6; font-size: 34px; line-height: 1; padding: 0;
+    cursor: pointer;
+  }
+  .stamp.on { border-color: #ff5fa2; background: #fff; transform: scale(1.08); }
+
+  .tools { display: flex; justify-content: center; gap: 6px; }
+  .tool {
+    flex: 0 1 54px; height: 54px; min-width: 40px;
+    border: 0; border-radius: 16px;
+    background: #fff; color: #333;
+    box-shadow: 0 4px 0 #e0a800;
+    font-size: 26px; line-height: 1; padding: 0;
+    cursor: pointer; position: relative;
+  }
+  .tool:active { transform: translateY(3px); box-shadow: 0 1px 0 #e0a800; }
+  .tool.on { background: #ff5fa2; color: #fff; box-shadow: 0 4px 0 #c2366f; }
+  .tool svg { width: 30px; height: 30px; display: block; margin: auto; }
+  #clear.confirm { background: #ff4d4d; color: #fff; font-size: 13px; font-weight: bold; box-shadow: 0 4px 0 #a82020; }
+  /* size dot grows with the chosen size */
+  #size i { display: block; margin: auto; border-radius: 50%; background: currentColor; }
+  .gap { flex: 0 0 4px; }
+
+  @media (max-height: 520px) {   /* phone on its side: slimmer toolbar */
+    #toolbar { flex-direction: row-reverse; align-items: flex-end; padding-top: 6px; }
+    .tray { flex: 1; height: 66px; }
+    .pencil { height: 56px; }
+    .stamp { flex-basis: 48px; height: 48px; font-size: 28px; }
+    .tool { flex-basis: 46px; height: 46px; font-size: 22px; }
+    .tools { gap: 4px; }
+  }
+</style>
+</head>
+<body>
+<div id="paper"><canvas id="canvas"></canvas></div>
+
+<div id="toolbar">
+  <div class="tray" id="pencils" aria-label="Pencils"></div>
+  <div class="tray" id="stamps" aria-label="Stamps" hidden></div>
+  <div class="tools">
+    <button class="tool" id="home" title="Back to the arcade" aria-label="Back to the arcade">🏠</button>
+    <span class="gap"></span>
+    <button class="tool on" id="pencil-tool" title="Pencils" aria-label="Pencils">✏️</button>
+    <button class="tool" id="rubber" title="Rubber" aria-label="Rubber">
+      <svg viewBox="0 0 32 32"><g transform="rotate(-35 16 16)"><rect x="4" y="10" width="24" height="12" rx="3" fill="#ff8fb1"/><rect x="4" y="10" width="9" height="12" rx="3" fill="#5aa9ff"/><rect x="4" y="10" width="24" height="12" rx="3" fill="none" stroke="#333" stroke-width="2"/></g></svg>
+    </button>
+    <button class="tool" id="stamp-tool" title="Stamps" aria-label="Stamps">⭐</button>
+    <button class="tool" id="size" title="Size" aria-label="Change size"><i></i></button>
+    <span class="gap"></span>
+    <button class="tool" id="undo" title="Undo" aria-label="Undo">↩️</button>
+    <button class="tool" id="clear" title="New picture" aria-label="New picture">🗑️</button>
+    <button class="tool" id="save" title="Save picture" aria-label="Save picture">💾</button>
+  </div>
+</div>
+
+<script src="doodle.js"></script>
+</body>
+</html>

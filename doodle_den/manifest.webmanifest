@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Doodle Den",
+  "short_name": "Doodle Den",
+  "description": "Draw with coloured pencils, a rubber and stamps.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffd94a",
+  "theme_color": "#ffd94a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
