@@ -5,31 +5,38 @@ function topColour(bottle) {
   return bottle[bottle.length - 1];
 }
 
-// Number of same-coloured layers at the top of a bottle.
-function topRun(bottle) {
+// Number of top layers that would pour: the top run, stopping at any iced
+// layer. `bottleSpecials` (optional) is that bottle's special properties.
+function pourableRun(bottle, bottleSpecials) {
   let run = 0;
-  for (let i = bottle.length - 1; i >= 0 && bottle[i] === topColour(bottle); i--) run++;
+  for (let i = bottle.length - 1; i >= 0 && bottle[i] === topColour(bottle) && !bottleSpecials?.[i]?.iced; i--) run++;
   return run;
 }
 
 // `locks` (optional) lists each bottle's lock colour, or null if it's open;
-// a locked bottle can't be poured from or into.
-function canPour(state, from, to, cap, locks) {
+// a locked bottle can't be poured from or into. `specials` (optional) is
+// needed for iced layers, which can't be poured.
+function canPour(state, from, to, cap, locks, specials) {
   if (from === to) return false;
   if (locks && (locks[from] !== null || locks[to] !== null)) return false;
   const src = state[from];
   const dst = state[to];
-  if (src.length === 0) return false;
+  if (pourableRun(src, specials?.[from]) === 0) return false;
   if (dst.length >= cap) return false;
   return dst.length === 0 || topColour(dst) === topColour(src);
 }
 
-// Pour the run of matching top layers, as many as fit. Mutates state and
-// returns how many layers moved.
-function pour(state, from, to, cap) {
+// How many layers a pour would move: the pourable run, as many as fit.
+function pourAmount(state, from, to, cap, specials) {
+  return Math.min(pourableRun(state[from], specials?.[from]), cap - state[to].length);
+}
+
+// Pour the run of matching top layers, as many as fit. Mutates state (but not
+// specials; see pourSpecials) and returns how many layers moved.
+function pour(state, from, to, cap, specials) {
   const src = state[from];
   const dst = state[to];
-  const amount = Math.min(topRun(src), cap - dst.length);
+  const amount = pourAmount(state, from, to, cap, specials);
   for (let i = 0; i < amount; i++) dst.push(src.pop());
   return amount;
 }
@@ -62,12 +69,15 @@ function cloneState(state) {
 //   hidden: face down, so its colour isn't shown. It turns face up once it's
 //           the top layer of its bottle, or its bottle is finished. It doesn't
 //           change which pours are allowed.
+//   iced:   frozen, so it can't be poured, and nothing below it can either.
+//           It melts once a layer of the same colour sits on top of it, or
+//           its bottle is finished.
 //
 // To add a kind: give layers the new property in levels.js, apply its effects
 // in settleSpecials (after each pour) and, if it limits pouring, in canPour and
 // the solver, then draw it in game.js's render().
 
-const SPECIAL_KINDS = ["hidden"];
+const SPECIAL_KINDS = ["hidden", "iced"];
 
 function layerColour(layer) {
   return typeof layer === "number" ? layer : layer.colour;
@@ -110,6 +120,8 @@ function settleSpecials(state, specials, cap) {
       const s = { ...(specials[b][depth] || {}) };
       // Hidden: face up once on top of its bottle, or the bottle is finished.
       if (s.hidden && (depth === bottle.length - 1 || finished)) delete s.hidden;
+      // Iced: melts under the same colour, or once the bottle is finished.
+      if (s.iced && (bottle[depth + 1] === bottle[depth] || finished)) delete s.iced;
       return s;
     });
   });
@@ -117,6 +129,10 @@ function settleSpecials(state, specials, cap) {
 
 function hasHiddenLayers(specials) {
   return specials.some(b => b.some(s => s.hidden));
+}
+
+function hasIcedLayers(specials) {
+  return specials.some(b => b.some(s => s.iced));
 }
 
 // ---------- locked bottles ----------
@@ -148,26 +164,35 @@ function starsFor(moves, par) {
 
 // Shortest list of pours that wins from this state, as [from, to] pairs.
 // Returns [] if already won, null if it can't be won, or undefined if it gave
-// up after looking at `limit` states. `startLocks` is optional (see above).
-function solve(start, cap, limit = 3000000, startLocks = null) {
+// up after looking at `limit` states. `startLocks` and `startSpecials` are
+// optional; of the specials, only ice matters to the solver.
+function solve(start, cap, limit = 3000000, startLocks = null, startSpecials = null) {
   if (isWon(start, cap)) return [];
+  if (startSpecials && !hasIcedLayers(startSpecials)) startSpecials = null;
   // Bottle order doesn't matter for solving, so sort to merge equivalent
-  // states. A lock stays with its bottle, so it's part of that bottle's key.
-  const key = (s, locks) => s.map((b, i) => (locks?.[i] ?? "") + ":" + b.join(",")).sort().join("|");
+  // states. Locks and ice stay with their bottle, so they're part of its key.
+  const key = (s, locks, sp) => s.map((b, i) => (locks?.[i] ?? "") + ":" +
+    b.map((c, d) => (sp?.[i][d].iced ? c + "*" : c)).join(",")).sort().join("|");
   // Each state remembers the state it came from and the pour that got there.
-  const cameFrom = new Map([[key(start, startLocks), null]]);
-  let frontier = [[start, startLocks]];
+  const cameFrom = new Map([[key(start, startLocks, startSpecials), null]]);
+  let frontier = [[start, startLocks, startSpecials]];
   while (frontier.length > 0) {
     const next = [];
-    for (const [s, locks] of frontier) {
-      const sKey = key(s, locks);
+    for (const [s, locks, sp] of frontier) {
+      const sKey = key(s, locks, sp);
       for (let from = 0; from < s.length; from++) {
         for (let to = 0; to < s.length; to++) {
-          if (!canPour(s, from, to, cap, locks)) continue;
+          if (!canPour(s, from, to, cap, locks, sp)) continue;
           const n = cloneState(s);
-          pour(n, from, to, cap);
+          const amount = pour(n, from, to, cap, sp);
           const nLocks = locks && settleLocks(n, locks, cap);
-          const nKey = key(n, nLocks);
+          let nSp = null;
+          if (sp) {
+            nSp = cloneSpecials(sp);
+            pourSpecials(nSp, from, to, amount);
+            nSp = settleSpecials(n, nSp, cap);
+          }
+          const nKey = key(n, nLocks, nSp);
           if (cameFrom.has(nKey)) continue;
           cameFrom.set(nKey, [sKey, from, to]);
           if (isWon(n, cap)) {
@@ -178,7 +203,7 @@ function solve(start, cap, limit = 3000000, startLocks = null) {
             return path;
           }
           if (cameFrom.size > limit) return undefined;
-          next.push([n, nLocks]);
+          next.push([n, nLocks, nSp]);
         }
       }
     }

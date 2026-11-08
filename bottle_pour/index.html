@@ -236,13 +236,30 @@
       font-size: calc(var(--layer-h) * 0.45);
       border-top-color: rgba(255, 255, 255, 0.08);
     }
+    /* Iced layers: frosted over with a snowflake. */
+    .layer.iced {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.95);
+      font-size: calc(var(--layer-h) * 0.5);
+      text-shadow: 0 0 4px rgba(120, 170, 220, 0.9);
+      box-shadow: inset 0 0 0 2px rgba(225, 245, 255, 0.85), inset 0 0 14px rgba(255, 255, 255, 0.7);
+      background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(200, 230, 255, 0.25) 45%,
+        rgba(255, 255, 255, 0.5) 50%, rgba(200, 230, 255, 0.2) 55%, rgba(255, 255, 255, 0.4)) !important;
+    }
+    .layer.melted { animation: melt 0.6s ease-out; }
+    @keyframes melt {
+      from { box-shadow: inset 0 0 0 30px rgba(225, 245, 255, 0.85); }
+      to { box-shadow: inset 0 0 0 0 rgba(225, 245, 255, 0); }
+    }
     .layer.revealed { animation: reveal 0.4s ease-out; }
     @keyframes reveal {
       from { transform: scaleY(0); filter: brightness(1.8); }
       to { transform: scaleY(1); filter: brightness(1); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .layer.revealed { animation: none; }
+      .layer.revealed, .layer.melted { animation: none; }
     }
 
     .overlay {

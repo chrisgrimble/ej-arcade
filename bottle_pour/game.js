@@ -73,7 +73,10 @@ function resetToStart() {
   moves = 0;
   hintsUsed = 0;
   hint = null;
-  showMessage(hasLocks(locks) ? "A locked bottle opens when you finish a bottle the colour of its lock." : "");
+  const tips = [];
+  if (hasLocks(locks)) tips.push("A locked bottle opens when you finish a bottle the colour of its lock.");
+  if (hasIcedLayers(specials)) tips.push("Ice can't be poured. Pour the same colour on top to melt it.");
+  showMessage(tips.join(" "));
   document.querySelectorAll(".confetti").forEach(c => c.remove());
   selected = null;
   winEl.hidden = true;
@@ -111,13 +114,21 @@ function render() {
       } else {
         layer.style.background = PALETTE[colour % PALETTE.length];
         if (specialsBefore?.[i]?.[depth]?.hidden) layer.classList.add("revealed");
+        if (specials[i][depth]?.iced) {
+          layer.classList.add("iced");
+          layer.textContent = "❄";
+        } else if (specialsBefore?.[i]?.[depth]?.iced) {
+          layer.classList.add("melted");
+        }
       }
       el.appendChild(layer);
     });
     const hiddenHere = specials[i].filter(s => s.hidden).length;
+    const icedHere = specials[i].filter(s => s.iced).length;
     const labels = [];
     if (locks[i] !== null) labels.push(`locked until a ${colourName(locks[i])} bottle is finished`);
     if (hiddenHere) labels.push(`${hiddenHere} hidden layer${hiddenHere === 1 ? "" : "s"}`);
+    if (icedHere) labels.push(`${icedHere} iced layer${icedHere === 1 ? "" : "s"}`);
     if (labels.length) el.setAttribute("aria-label", labels.join(", "));
     el.addEventListener("click", () => onBottleClick(i));
     boardEl.appendChild(el);
@@ -129,6 +140,13 @@ function refuseLocked(index) {
   sounds.invalid();
   shake(index);
   showMessage(`This bottle is locked. Finish a ${colourName(locks[index])} bottle to open it.`);
+}
+
+// Turns away a bottle whose top layer is iced, saying how to melt it.
+function refuseIced(index) {
+  sounds.invalid();
+  shake(index);
+  showMessage(`That ${colourName(topColour(bottles[index]))} layer is frozen. Pour ${colourName(topColour(bottles[index]))} on top to melt it.`);
 }
 
 function shake(index) {
@@ -148,6 +166,10 @@ function onBottleClick(i) {
     if (bottles[i].length === 0) {
       sounds.invalid();
       shake(i);
+      return;
+    }
+    if (pourableRun(bottles[i], specials[i]) === 0) {
+      refuseIced(i);
       return;
     }
     sounds.pickUp();
@@ -170,7 +192,7 @@ function onBottleClick(i) {
     refuseLocked(i);
     return;
   }
-  if (!canPour(bottles, from, i, capacity, locks)) {
+  if (!canPour(bottles, from, i, capacity, locks, specials)) {
     sounds.invalid();
     render();
     shake(i);
@@ -181,7 +203,7 @@ function onBottleClick(i) {
   animatePour(from, i).then(() => {
     animating = false;
     history.push({ bottles: cloneState(bottles), specials: cloneSpecials(specials), locks });
-    const amount = pour(bottles, from, i, capacity);
+    const amount = pour(bottles, from, i, capacity, specials);
     pourSpecials(specials, from, i, amount);
     moves++;
     hint = null;
@@ -190,6 +212,8 @@ function onBottleClick(i) {
     specials = settleSpecials(bottles, specials, capacity);
     const revealed = specials.some((b, bi) => b.some((s, d) => !s.hidden && specialsBefore[bi][d]?.hidden));
     if (revealed) sounds.reveal();
+    const melted = specials.some((b, bi) => b.some((s, d) => !s.iced && specialsBefore[bi][d]?.iced));
+    if (melted) sounds.melt();
     locksBefore = locks;
     locks = settleLocks(bottles, locks, capacity);
     const opened = locks.filter((colour, b) => colour !== locksBefore[b]).length;
@@ -312,7 +336,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Plays the pour on the current DOM only; the caller updates the state afterwards.
 async function animatePour(from, to) {
-  const amount = Math.min(topRun(bottles[from]), capacity - bottles[to].length);
+  const amount = pourAmount(bottles, from, to, capacity, specials);
   const fromFill = bottles[to].length / capacity;
   const toFill = (bottles[to].length + amount) / capacity;
 
@@ -652,7 +676,7 @@ function showHint() {
     return;
   }
 
-  const path = solve(bottles, capacity, HINT_SEARCH_LIMIT, locks);
+  const path = solve(bottles, capacity, HINT_SEARCH_LIMIT, locks, specials);
   if (path === null) {
     sounds.invalid();
     showMessage("There's no way to win from here. Undo a few moves or restart.");
