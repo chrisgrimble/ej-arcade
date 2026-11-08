@@ -1,6 +1,10 @@
 // Game rules, shared by game.js and tools/generate-levels.mjs.
 // A state is an array of bottles; each bottle lists colour ids bottom -> top.
 
+// The colour id of a rainbow layer. It matches any colour, and turns into the
+// colour poured onto it, or the colour it's poured onto.
+const RAINBOW = -1;
+
 function topColour(bottle) {
   return bottle[bottle.length - 1];
 }
@@ -23,7 +27,14 @@ function canPour(state, from, to, cap, locks, specials) {
   const dst = state[to];
   if (pourableRun(src, specials?.[from]) === 0) return false;
   if (dst.length >= cap) return false;
-  return dst.length === 0 || topColour(dst) === topColour(src);
+  return dst.length === 0 || topColour(dst) === topColour(src) ||
+    topColour(src) === RAINBOW || topColour(dst) === RAINBOW;
+}
+
+// The colour the poured layers end up: a rainbow takes on the colour it lands on.
+function pouredColour(state, from, to) {
+  const colour = topColour(state[from]);
+  return colour === RAINBOW && state[to].length ? topColour(state[to]) : colour;
 }
 
 // How many layers a pour would move: the pourable run, as many as fit.
@@ -37,7 +48,13 @@ function pour(state, from, to, cap, specials) {
   const src = state[from];
   const dst = state[to];
   const amount = pourAmount(state, from, to, cap, specials);
-  for (let i = 0; i < amount; i++) dst.push(src.pop());
+  const colour = pouredColour(state, from, to);
+  // Rainbow layers on top of the target take on the colour poured onto them.
+  if (colour !== RAINBOW) for (let i = dst.length - 1; i >= 0 && dst[i] === RAINBOW; i--) dst[i] = colour;
+  for (let i = 0; i < amount; i++) {
+    src.pop();
+    dst.push(colour);
+  }
   return amount;
 }
 
@@ -58,7 +75,8 @@ function cloneState(state) {
 // ---------- special layers ----------
 // In a level, a plain layer is just its colour number. A special layer is an
 // object with its colour and one or more special properties, for example
-// { colour: 2, hidden: true }.
+// { colour: 2, hidden: true }. A rainbow layer is { rainbow: true }: rainbow
+// is its colour (RAINBOW, above) rather than a special property.
 //
 // During play the colours (the puzzle state above) and the special properties
 // are kept side by side: `specials` has the same shape as the bottles, with an
@@ -80,7 +98,8 @@ function cloneState(state) {
 const SPECIAL_KINDS = ["hidden", "iced"];
 
 function layerColour(layer) {
-  return typeof layer === "number" ? layer : layer.colour;
+  if (typeof layer === "number") return layer;
+  return layer.rainbow ? RAINBOW : layer.colour;
 }
 
 function layerSpecials(layer) {

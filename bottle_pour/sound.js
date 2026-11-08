@@ -59,6 +59,12 @@ const sounds = {
   // A quick upward flick as a hidden layer turns face up.
   reveal: () => play(t => tone(520, t, 0.12, { type: "triangle", volume: 0.07, slideTo: 1040 })),
 
+  // A quick rising sparkle as a rainbow takes on a colour.
+  rainbow: () => play(t => {
+    [784, 988, 1175, 1568].forEach((freq, i) =>
+      tone(freq, t + i * 0.045, 0.16, { type: "sine", volume: 0.06 }));
+  }),
+
   // A trickle of high notes falling as ice melts.
   melt: () => play(t => {
     [1568, 1319, 1047, 880].forEach((freq, i) =>

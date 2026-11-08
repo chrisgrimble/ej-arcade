@@ -16,7 +16,17 @@ const PALETTE = [
 const COLOUR_NAMES = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "pink", "brown", "grey"];
 
 function colourName(colour) {
-  return COLOUR_NAMES[colour % COLOUR_NAMES.length];
+  return colour === RAINBOW ? "rainbow" : COLOUR_NAMES[colour % COLOUR_NAMES.length];
+}
+
+// Two full rainbows side by side, so a layer shimmering across half of it
+// (see .layer.rainbow) always shows every colour.
+const RAINBOW_STOPS = "#e74c3c, #e67e22, #f1c40f, #2ecc71, #3498db, #9b59b6";
+const RAINBOW_CSS = `linear-gradient(90deg, ${RAINBOW_STOPS}, ${RAINBOW_STOPS}, #e74c3c)`;
+
+// A CSS background for a colour id.
+function colourCss(colour) {
+  return colour === RAINBOW ? RAINBOW_CSS : PALETTE[colour % PALETTE.length];
 }
 
 // ---------- game state ----------
@@ -34,6 +44,7 @@ let selected = null;
 let hintsUsed = 0;       // on this attempt; any hint caps the stars at 2
 let hint = null;         // [from, to] being suggested, until the next pour
 let specialsBefore = null; // specials before the last pour, to animate what it revealed
+let bottlesBefore = null;  // bottles before the last pour, to animate rainbows changing colour
 let locksBefore = null;    // locks before the last pour, to animate the ones it opened
 
 // ---------- UI ----------
@@ -68,6 +79,7 @@ function resetToStart() {
   specials = levelSpecials(currentLevel());
   locks = levelLocks(currentLevel());
   specialsBefore = null;
+  bottlesBefore = null;
   locksBefore = null;
   history = [];
   moves = 0;
@@ -76,6 +88,7 @@ function resetToStart() {
   const tips = [];
   if (hasLocks(locks)) tips.push("A locked bottle opens when you finish a bottle the colour of its lock.");
   if (hasIcedLayers(specials)) tips.push("Ice can't be poured. Pour the same colour on top to melt it.");
+  if (bottles.some(b => b.includes(RAINBOW))) tips.push("Rainbow matches any colour, and turns into the colour it meets.");
   showMessage(tips.join(" "));
   document.querySelectorAll(".confetti").forEach(c => c.remove());
   selected = null;
@@ -112,8 +125,10 @@ function render() {
         layer.classList.add("face-down");
         layer.textContent = "?";
       } else {
-        layer.style.background = PALETTE[colour % PALETTE.length];
+        layer.style.background = colourCss(colour);
+        if (colour === RAINBOW) layer.classList.add("rainbow");
         if (specialsBefore?.[i]?.[depth]?.hidden) layer.classList.add("revealed");
+        if (bottlesBefore?.[i]?.[depth] === RAINBOW && colour !== RAINBOW) layer.classList.add("recoloured");
         if (specials[i][depth]?.iced) {
           layer.classList.add("iced");
           layer.textContent = "❄";
@@ -125,10 +140,12 @@ function render() {
     });
     const hiddenHere = specials[i].filter(s => s.hidden).length;
     const icedHere = specials[i].filter(s => s.iced).length;
+    const rainbowsHere = bottle.filter(c => c === RAINBOW).length;
     const labels = [];
     if (locks[i] !== null) labels.push(`locked until a ${colourName(locks[i])} bottle is finished`);
     if (hiddenHere) labels.push(`${hiddenHere} hidden layer${hiddenHere === 1 ? "" : "s"}`);
     if (icedHere) labels.push(`${icedHere} iced layer${icedHere === 1 ? "" : "s"}`);
+    if (rainbowsHere) labels.push(`${rainbowsHere} rainbow layer${rainbowsHere === 1 ? "" : "s"}`);
     if (labels.length) el.setAttribute("aria-label", labels.join(", "));
     el.addEventListener("click", () => onBottleClick(i));
     boardEl.appendChild(el);
@@ -203,7 +220,11 @@ function onBottleClick(i) {
   animatePour(from, i).then(() => {
     animating = false;
     history.push({ bottles: cloneState(bottles), specials: cloneSpecials(specials), locks });
+    const rainbowMet = pouredColour(bottles, from, i) !== RAINBOW &&
+      (topColour(bottles[from]) === RAINBOW || topColour(bottles[i]) === RAINBOW);
+    bottlesBefore = cloneState(bottles);
     const amount = pour(bottles, from, i, capacity, specials);
+    if (rainbowMet) sounds.rainbow();
     pourSpecials(specials, from, i, amount);
     moves++;
     hint = null;
@@ -223,6 +244,7 @@ function onBottleClick(i) {
     }
     render();
     specialsBefore = null;
+    bottlesBefore = null;
     locksBefore = null;
 
     if (isComplete(bottles[i])) {
@@ -348,7 +370,7 @@ async function animatePour(from, to) {
   const srcEl = boardEl.children[from];
   const dstEl = boardEl.children[to];
   const layerH = parseFloat(getComputedStyle(srcEl).getPropertyValue("--layer-h"));
-  const colour = PALETTE[topColour(bottles[from]) % PALETTE.length];
+  const colour = colourCss(pouredColour(bottles, from, to));
 
   // Tilt around the mouth and park it just above the target's mouth.
   const half = srcEl.offsetWidth / 2;
