@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Match Up",
+  "short_name": "Match Up",
+  "description": "A memory game for kids: flip the cards and find the pairs.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#8e6bff",
+  "theme_color": "#8e6bff",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
