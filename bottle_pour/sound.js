@@ -59,6 +59,12 @@ const sounds = {
   // A quick upward flick as a hidden layer turns face up.
   reveal: () => play(t => tone(520, t, 0.12, { type: "triangle", volume: 0.07, slideTo: 1040 })),
 
+  // A low clunk as the lock gives, then a bright ding.
+  unlock: () => play(t => {
+    tone(220, t, 0.1, { type: "square", volume: 0.05, slideTo: 330 });
+    tone(1319, t + 0.1, 0.4, { type: "triangle", volume: 0.09 });
+  }),
+
   hint: () => play(t => {
     tone(880, t, 0.25, { volume: 0.07 });
     tone(1175, t + 0.1, 0.35, { volume: 0.06 });

@@ -168,6 +168,58 @@
       60% { translate: -4px; }
       80% { translate: 4px; }
     }
+    /* Locked bottles: dimmed, with a padlock in the colour that opens them. */
+    .bottle.locked { cursor: not-allowed; border-color: rgba(255, 255, 255, 0.4); }
+    .bottle.locked .layer { filter: brightness(0.75) saturate(0.85); }
+    .padlock {
+      position: absolute;
+      left: 50%;
+      top: 58%;
+      width: calc(var(--layer-h) * 0.8);
+      height: calc(var(--layer-h) * 0.62);
+      translate: -50% -50%;
+      z-index: 2;
+      border-radius: 5px;
+      background: var(--lock);
+      border: 2px solid rgba(0, 0, 0, 0.35);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    }
+    .padlock::before {
+      /* shackle */
+      content: "";
+      position: absolute;
+      left: 16%;
+      right: 16%;
+      bottom: 100%;
+      height: 70%;
+      border: 4px solid #d9dde6;
+      border-bottom: none;
+      border-radius: 999px 999px 0 0;
+    }
+    .padlock::after {
+      /* keyhole */
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 30%;
+      width: 6px;
+      height: 9px;
+      margin-left: -3px;
+      border-radius: 3px 3px 1px 1px;
+      background: rgba(0, 0, 0, 0.55);
+    }
+    .padlock.opening { animation: unlock 0.7s ease-in forwards; }
+    .padlock.opening::before { animation: shackle-up 0.25s ease-out forwards; }
+    @keyframes unlock {
+      0%, 35% { transform: none; opacity: 1; }
+      100% { transform: translateY(60px) rotate(25deg); opacity: 0; }
+    }
+    @keyframes shackle-up {
+      to { transform: translateY(-35%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .padlock.opening { display: none; }
+    }
     .layer {
       height: var(--layer-h);
       flex-shrink: 0;

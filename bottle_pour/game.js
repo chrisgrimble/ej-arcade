@@ -13,6 +13,11 @@ const PALETTE = [
   "#8d6e63", // brown
   "#bdc3c7", // grey
 ];
+const COLOUR_NAMES = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "pink", "brown", "grey"];
+
+function colourName(colour) {
+  return COLOUR_NAMES[colour % COLOUR_NAMES.length];
+}
 
 // ---------- game state ----------
 
@@ -22,12 +27,14 @@ let levelIndex = 0;
 let capacity = 4;
 let bottles = [];        // current state: array of arrays of colours, bottom -> top
 let specials = [];       // special layer properties, same shape as bottles (see rules.js)
-let history = [];        // previous { bottles, specials }, for Undo
+let locks = [];          // each bottle's lock colour, or null when open (see rules.js)
+let history = [];        // previous { bottles, specials, locks }, for Undo
 let moves = 0;
 let selected = null;
 let hintsUsed = 0;       // on this attempt; any hint caps the stars at 2
 let hint = null;         // [from, to] being suggested, until the next pour
 let specialsBefore = null; // specials before the last pour, to animate what it revealed
+let locksBefore = null;    // locks before the last pour, to animate the ones it opened
 
 // ---------- UI ----------
 
@@ -59,12 +66,14 @@ function startLevel() {
 function resetToStart() {
   bottles = levelColours(currentLevel());
   specials = levelSpecials(currentLevel());
+  locks = levelLocks(currentLevel());
   specialsBefore = null;
+  locksBefore = null;
   history = [];
   moves = 0;
   hintsUsed = 0;
   hint = null;
-  showMessage("");
+  showMessage(hasLocks(locks) ? "A locked bottle opens when you finish a bottle the colour of its lock." : "");
   document.querySelectorAll(".confetti").forEach(c => c.remove());
   selected = null;
   winEl.hidden = true;
@@ -81,10 +90,18 @@ function render() {
     const el = document.createElement("div");
     el.className = "bottle" + (selected === i ? " selected" : "") +
       (isComplete(bottle) ? " complete" : "") +
+      (locks[i] !== null ? " locked" : "") +
       (hint && hint[0] === i ? " hint-from" : "") +
       (hint && hint[1] === i ? " hint-to" : "");
     // Height scales with capacity, plus a little headroom for the neck.
     el.style.height = `calc(var(--layer-h) * ${capacity} + 16px)`;
+    const lockColour = locks[i] ?? locksBefore?.[i] ?? null;
+    if (lockColour !== null) {
+      const padlock = document.createElement("div");
+      padlock.className = "padlock" + (locks[i] === null ? " opening" : "");
+      padlock.style.setProperty("--lock", PALETTE[lockColour % PALETTE.length]);
+      el.appendChild(padlock);
+    }
     bottle.forEach((colour, depth) => {
       const layer = document.createElement("div");
       layer.className = "layer";
@@ -98,12 +115,20 @@ function render() {
       el.appendChild(layer);
     });
     const hiddenHere = specials[i].filter(s => s.hidden).length;
-    if (hiddenHere) {
-      el.setAttribute("aria-label", `${hiddenHere} hidden layer${hiddenHere === 1 ? "" : "s"}`);
-    }
+    const labels = [];
+    if (locks[i] !== null) labels.push(`locked until a ${colourName(locks[i])} bottle is finished`);
+    if (hiddenHere) labels.push(`${hiddenHere} hidden layer${hiddenHere === 1 ? "" : "s"}`);
+    if (labels.length) el.setAttribute("aria-label", labels.join(", "));
     el.addEventListener("click", () => onBottleClick(i));
     boardEl.appendChild(el);
   });
+}
+
+// Turns a locked bottle away, saying how to open it.
+function refuseLocked(index) {
+  sounds.invalid();
+  shake(index);
+  showMessage(`This bottle is locked. Finish a ${colourName(locks[index])} bottle to open it.`);
 }
 
 function shake(index) {
@@ -116,6 +141,10 @@ function shake(index) {
 function onBottleClick(i) {
   if (animating) return;
   if (selected === null) {
+    if (locks[i] !== null) {
+      refuseLocked(i);
+      return;
+    }
     if (bottles[i].length === 0) {
       sounds.invalid();
       shake(i);
@@ -136,7 +165,12 @@ function onBottleClick(i) {
 
   const from = selected;
   selected = null;
-  if (!canPour(bottles, from, i, capacity)) {
+  if (locks[i] !== null) {
+    render();
+    refuseLocked(i);
+    return;
+  }
+  if (!canPour(bottles, from, i, capacity, locks)) {
     sounds.invalid();
     render();
     shake(i);
@@ -146,7 +180,7 @@ function onBottleClick(i) {
   animating = true;
   animatePour(from, i).then(() => {
     animating = false;
-    history.push({ bottles: cloneState(bottles), specials: cloneSpecials(specials) });
+    history.push({ bottles: cloneState(bottles), specials: cloneSpecials(specials), locks });
     const amount = pour(bottles, from, i, capacity);
     pourSpecials(specials, from, i, amount);
     moves++;
@@ -156,8 +190,16 @@ function onBottleClick(i) {
     specials = settleSpecials(bottles, specials, capacity);
     const revealed = specials.some((b, bi) => b.some((s, d) => !s.hidden && specialsBefore[bi][d]?.hidden));
     if (revealed) sounds.reveal();
+    locksBefore = locks;
+    locks = settleLocks(bottles, locks, capacity);
+    const opened = locks.filter((colour, b) => colour !== locksBefore[b]).length;
+    if (opened) {
+      sounds.unlock();
+      showMessage(`Finishing ${colourName(bottles[i][0])} opened ${opened === 1 ? "a locked bottle" : `${opened} locked bottles`}!`);
+    }
     render();
     specialsBefore = null;
+    locksBefore = null;
 
     if (isComplete(bottles[i])) {
       celebrateBottle(boardEl.children[i], PALETTE[bottles[i][0] % PALETTE.length]);
@@ -223,7 +265,8 @@ function showWin() {
 function openLevels() {
   levelGrid.innerHTML = "";
   LEVELS.forEach((level, i) => {
-    const locked = i > progress.unlocked;
+    // A level added after someone finished the last one opens once that's solved.
+    const locked = i > progress.unlocked && !progress.stars[i - 1];
     const stars = progress.stars[i] || 0;
     const tile = document.createElement("button");
     tile.className = "level-tile" + (i === levelIndex ? " current" : "");
@@ -357,8 +400,9 @@ async function animatePour(from, to) {
 
 undoBtn.addEventListener("click", () => {
   if (animating || history.length === 0) return;
-  // Puts back the special layers as they were too, so uncovered layers hide again.
-  ({ bottles, specials } = history.pop());
+  // Puts back the special layers and locks as they were too, so uncovered
+  // layers hide again and opened bottles lock again.
+  ({ bottles, specials, locks } = history.pop());
   moves--;
   selected = null;
   hint = null;
@@ -608,7 +652,7 @@ function showHint() {
     return;
   }
 
-  const path = solve(bottles, capacity, HINT_SEARCH_LIMIT);
+  const path = solve(bottles, capacity, HINT_SEARCH_LIMIT, locks);
   if (path === null) {
     sounds.invalid();
     showMessage("There's no way to win from here. Undo a few moves or restart.");
@@ -649,16 +693,16 @@ showSoundSetting();
 // When hosted as a Claude page, an update to the page keeps the game in progress.
 // Elsewhere window.claude doesn't exist and this just asks for a name.
 
-window.claude?.hot?.snapshot?.(() => ({ playerName, levelIndex, bottles, specials, history, moves, hintsUsed }));
+window.claude?.hot?.snapshot?.(() => ({ playerName, levelIndex, bottles, specials, locks, history, moves, hintsUsed }));
 
 function boot(saved = {}) {
   if (!saved.playerName || !(saved.levelIndex < LEVELS.length)) return askForName();
   ({ playerName, levelIndex } = saved);
   progress = loadProgress(playerName);
   playerEl.textContent = playerName;
-  // A game kept from before special layers existed can't be resumed; restart it.
-  if (!saved.specials) return startLevel();
-  ({ bottles, specials, history, moves } = saved);
+  // A game kept from before special layers or locks existed can't be resumed; restart it.
+  if (!saved.specials || !saved.locks) return startLevel();
+  ({ bottles, specials, locks, history, moves } = saved);
   hintsUsed = saved.hintsUsed || 0;
   capacity = currentLevel().capacity;
   render();
