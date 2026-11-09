@@ -89,7 +89,7 @@ function resetToStart() {
   if (hasLocks(locks)) tips.push("A locked bottle opens when you finish a bottle the colour of its lock.");
   if (hasIcedLayers(specials)) tips.push("Ice can't be poured. Pour the same colour on top to melt it.");
   if (bottles.some(b => b.includes(RAINBOW))) tips.push("Rainbow matches any colour, and turns into the colour it meets.");
-  showMessage(tips.join(" "));
+  showMessage(tips.join(" "), { keep: true });
   document.querySelectorAll(".confetti").forEach(c => c.remove());
   selected = null;
   winEl.hidden = true;
@@ -681,10 +681,12 @@ const HINT_SEARCH_LIMIT = 200000;  // states; keeps the page responsive
 const messageEl = document.getElementById("message");
 let messageTimer = null;
 
-function showMessage(text) {
+// A message fades after a few seconds, unless `keep` is set; then it stays
+// until the next message (every pour clears it).
+function showMessage(text, { keep = false } = {}) {
   clearTimeout(messageTimer);
   messageEl.textContent = text;
-  if (text) messageTimer = setTimeout(() => { messageEl.textContent = ""; }, 6000);
+  if (text && !keep) messageTimer = setTimeout(() => { messageEl.textContent = ""; }, 6000);
 }
 
 function showHint() {

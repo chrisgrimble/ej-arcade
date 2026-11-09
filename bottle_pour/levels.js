@@ -106,4 +106,44 @@ const LEVELS = [
   { capacity: 4, par: 17, bottles: [[3,0,1,2],[3,{"rainbow":true},1,4],[0,4,0,4],[0,1,3,2],[{"rainbow":true},2,1,4],[],[]] },
   // Level 50: 8 bottles, par 18, three rainbow layers for three colours that are each a layer short
   { capacity: 4, par: 18, bottles: [[3,5,0,4],[1,2,1,{"rainbow":true}],[2,{"rainbow":true},2,1],[0,0,4,3],[3,4,{"rainbow":true},5],[4,0,1,5],[],[]] },
+  // Level 51: 7 bottles, par 17, a locked bottle, an iced layer
+  { capacity: 4, par: 17, bottles: [[3,1,2,3],[1,4,{"colour":3,"iced":true},0],[3,4,0,4],[2,4,0,1],[2,1,2,0],[],[]], locks: [null,null,null,null,null,0,null] },
+  // Level 52: 7 bottles, par 16, an iced layer, 2 rainbow layers
+  { capacity: 4, par: 16, bottles: [[2,1,4,2],[1,0,2,3],[1,{"colour":3,"iced":true},{"rainbow":true},2],[0,0,4,{"rainbow":true}],[0,1,4,3],[],[]] },
+  // Level 53: 8 bottles, par 17, a locked bottle, 2 rainbow layers
+  { capacity: 4, par: 17, bottles: [[3,2,2,1],[0,2,5,1],[4,4,1,5],[0,0,5,3],[0,4,{"rainbow":true},2],[5,1,3,{"rainbow":true}],[],[]], locks: [null,null,2,null,null,null,null,null] },
+  // Level 54: 8 bottles, par 20, 2 iced layers, some layers hidden
+  { capacity: 4, par: 20, bottles: [[{"colour":5,"iced":true},4,4,0],[{"colour":3,"hidden":true},{"colour":4,"hidden":true},5,2],[1,3,0,5],[{"colour":1,"hidden":true},2,{"colour":0,"hidden":true},2],[2,3,{"colour":4,"iced":true},0],[5,1,3,1],[],[]] },
+  // Level 55: 8 bottles, par 19, a locked bottle, 2 iced layers
+  { capacity: 4, par: 19, bottles: [[0,3,2,5],[0,1,2,1],[5,5,{"colour":2,"iced":true},4],[0,{"colour":2,"iced":true},3,1],[5,3,4,0],[4,4,1,3],[],[]], locks: [null,null,null,null,null,null,4,null] },
+  // Level 56: 8 bottles, par 18, 2 rainbow layers, some layers hidden
+  { capacity: 4, par: 18, bottles: [[{"colour":2,"hidden":true},2,0,2],[4,{"colour":5,"hidden":true},0,{"rainbow":true}],[3,{"colour":4,"hidden":true},1,4],[{"rainbow":true},4,1,5],[3,3,2,0],[5,1,{"colour":0,"hidden":true},3],[],[]] },
+  // Level 57: 8 bottles, par 23, a locked bottle, an iced layer, 2 rainbow layers
+  { capacity: 4, par: 23, bottles: [[{"rainbow":true},2,5,3],[4,0,1,0],[5,2,3,2],[3,0,3,2],[4,1,{"colour":5,"iced":true},{"rainbow":true}],[1,4,0,5],[],[]], locks: [null,null,null,null,null,null,3,null] },
+  // Level 58: 9 bottles, par 23, a locked bottle, 3 iced layers
+  { capacity: 4, par: 23, bottles: [[3,4,4,2],[0,0,{"colour":5,"iced":true},2],[6,1,2,3],[3,5,{"colour":6,"iced":true},4],[5,6,5,1],[0,{"colour":3,"iced":true},2,1],[6,4,0,1],[],[]], locks: [6,null,null,null,null,null,null,null,null] },
+  // Level 59: 10 bottles, par 19, a locked bottle, 3 rainbow layers
+  { capacity: 4, par: 19, bottles: [[3,3,{"rainbow":true},2],[1,1,5,6],[6,3,0,1],[2,{"rainbow":true},6,4],[5,5,4,0],[3,5,4,0],[2,{"rainbow":true},6,1],[],[],[]], locks: [null,null,null,null,null,null,null,1,null,null] },
+  // Level 60: 9 bottles, par 21, 2 iced layers, 2 rainbow layers, some layers hidden
+  { capacity: 4, par: 21, bottles: [[0,4,{"colour":0,"hidden":true},3],[{"colour":1,"hidden":true},{"colour":1,"hidden":true},0,6],[{"colour":2,"iced":true},6,1,4],[4,5,{"rainbow":true},6],[3,{"rainbow":true},2,6],[5,1,5,0],[3,{"colour":4,"iced":true},3,2],[],[]] },
+  // Level 61: 10 bottles, par 21, two locked bottles, 2 iced layers
+  { capacity: 4, par: 21, bottles: [[1,3,5,4],[0,3,5,3],[1,1,2,6],[{"colour":2,"iced":true},4,4,3],[0,6,0,1],[4,6,6,2],[2,5,{"colour":0,"iced":true},5],[],[],[]], locks: [null,1,null,null,null,null,null,2,null,null] },
+  // Level 62: 10 bottles, par 21, a locked bottle, 2 iced layers, 2 rainbow layers
+  { capacity: 4, par: 21, bottles: [[6,2,0,1],[1,{"rainbow":true},2,6],[{"colour":4,"iced":true},6,5,{"rainbow":true}],[{"colour":1,"iced":true},3,5,4],[1,4,0,3],[0,5,5,2],[2,3,3,0],[],[],[]], locks: [null,null,null,null,null,null,null,1,null,null] },
+  // Level 63: 9 bottles, par 23, 2 iced layers, some layers hidden
+  { capacity: 4, par: 23, bottles: [[{"colour":6,"iced":true},2,3,1],[0,5,3,2],[{"colour":1,"hidden":true},{"colour":4,"hidden":true},6,5],[2,3,{"colour":5,"hidden":true},4],[{"colour":4,"hidden":true},{"colour":0,"iced":true},6,4],[{"colour":5,"hidden":true},1,0,6],[{"colour":1,"hidden":true},{"colour":2,"hidden":true},{"colour":3,"hidden":true},0],[],[]] },
+  // Level 64: 9 bottles, par 23, 2 iced layers, 3 rainbow layers
+  { capacity: 4, par: 23, bottles: [[2,{"colour":0,"iced":true},2,1],[3,4,{"rainbow":true},1],[0,1,5,{"rainbow":true}],[6,4,{"rainbow":true},4],[6,2,{"colour":3,"iced":true},5],[5,3,0,6],[6,5,3,4],[],[]] },
+  // Level 65: 10 bottles, par 24, two locked bottles, 2 rainbow layers, some layers hidden
+  { capacity: 4, par: 24, bottles: [[2,3,2,6],[4,1,5,0],[5,6,2,1],[5,0,3,1],[{"colour":0,"hidden":true},{"colour":4,"hidden":true},{"colour":6,"hidden":true},{"rainbow":true}],[{"colour":4,"hidden":true},3,{"rainbow":true},3],[4,6,0,2],[],[],[]], locks: [null,null,null,null,null,null,3,0,null,null] },
+  // Level 66: 11 bottles, par 26, a locked bottle, 3 iced layers
+  { capacity: 4, par: 26, bottles: [[7,4,3,1],[0,{"colour":2,"iced":true},{"colour":0,"iced":true},1],[5,6,4,7],[0,6,{"colour":1,"iced":true},5],[4,2,5,3],[3,5,7,3],[0,2,2,6],[1,7,6,4],[],[],[]], locks: [null,null,null,null,null,null,null,null,5,null,null] },
+  // Level 67: 10 bottles, par 26, 3 rainbow layers, some layers hidden
+  { capacity: 4, par: 26, bottles: [[7,{"colour":0,"hidden":true},2,0],[2,{"colour":4,"hidden":true},5,3],[{"rainbow":true},7,2,6],[0,6,7,6],[{"rainbow":true},5,{"colour":4,"hidden":true},0],[7,3,3,1],[1,{"colour":5,"hidden":true},{"rainbow":true},3],[1,4,5,2],[],[]] },
+  // Level 68: 10 bottles, par 26, a locked bottle, 2 iced layers, 2 rainbow layers
+  { capacity: 4, par: 26, bottles: [[1,4,5,0],[6,2,7,0],[5,3,7,4],[6,6,{"rainbow":true},5],[4,2,5,1],[{"colour":3,"iced":true},6,7,1],[2,0,{"rainbow":true},0],[{"colour":1,"iced":true},3,7,4],[],[]], locks: [null,null,null,1,null,null,null,null,null,null] },
+  // Level 69: 11 bottles, par 27, a locked bottle, 3 iced layers, 2 rainbow layers, some layers hidden
+  { capacity: 4, par: 27, bottles: [[7,1,4,5],[2,7,0,2],[{"colour":5,"hidden":true},5,{"colour":4,"hidden":true},3],[1,3,{"colour":4,"iced":true},3],[{"colour":0,"hidden":true},{"colour":7,"iced":true},{"colour":2,"hidden":true},{"rainbow":true}],[7,6,{"rainbow":true},1],[3,4,{"colour":6,"iced":true},2],[5,6,1,0],[],[],[]], locks: [null,null,null,null,null,null,null,null,3,null,null] },
+  // Level 70: 11 bottles, par 27, two locked bottles, 2 iced layers, 3 rainbow layers, some layers hidden
+  { capacity: 4, par: 27, bottles: [[{"rainbow":true},6,{"colour":4,"iced":true},0],[1,{"colour":3,"hidden":true},2,3],[4,2,3,{"rainbow":true}],[{"rainbow":true},{"colour":6,"iced":true},7,6],[5,{"colour":0,"hidden":true},5,7],[4,7,3,7],[0,{"colour":2,"hidden":true},5,1],[2,{"colour":4,"hidden":true},1,5],[],[],[]], locks: [null,null,7,null,null,null,null,null,0,null,null] },
 ];
